@@ -56,7 +56,7 @@ class SafetySupervisor:
         if stability.level == "critical":
             self._log()
             return SafetyDecision(False, 0.0, True, False, "STABILITY_CRITICAL", stability.reason)
-        # 3) 已判定不可通行但仍在下发前进指令 → 拦停
+        # 3) 已判定不可通行却仍在前进：安全层直接否决
         if blocked and speed_target > 0.05:
             self._log()
             return SafetyDecision(False, 0.0, False, False, "BLOCKED_AHEAD", "前方不可通行，停车待决策")
