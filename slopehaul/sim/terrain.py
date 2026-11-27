@@ -195,7 +195,7 @@ def rough_downhill_profile(length: float = 20.0) -> TerrainProfile:
 
 
 def steep_wet_profile(length: float = 12.0) -> TerrainProfile:
-    """超出能力的湿滑陡坡 26°：正确行为是识别并拒绞，而不是硬爬。
+    """超出能力的湿滑陡坡 26°：正确行为是识别并拒绝，而不是硬爬。
 
     前 4 m 为 6° 的缓坡接近段，保证系统有时间看到前方陡坡并安全停车。
     """
