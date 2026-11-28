@@ -2,7 +2,9 @@
 
 面向山地果园"采收后运输"：坡度变化大、道路狭窄、地面松软、路面起伏；负重行驶容易打滑、溜坡、侧倾、停车困难。本项目给出**纯 Python、可一键复现**的地形感知 + 自适应控制闭环，并在五类典型工况下与"定速 + 均分扭矩"基线做同场景对比。
 
-代码量约 2600 行，不依赖 Isaac Sim / ROS / GPU，`python scripts/run_benchmark.py` 即可跑完五个场景 × 两套策略。
+代码量约 3100 行，不依赖 Isaac Sim / ROS / GPU，`python scripts/run_benchmark.py` 即可跑完五个场景 × 两套策略。
+
+除算法外，仓库还包含**整机样机 P1 的可制造方案**（尺寸、爬坡/侧倾/制动/续航核算、电气选型、BOM 3.35 万元、试验大纲）：[`docs/prototype/P1_整机样机方案.md`](docs/prototype/P1_整机样机方案.md)，装配 BOM 见 [`bom_slopehaul_p1.csv`](docs/prototype/bom_slopehaul_p1.csv)。
 
 ## 结论先看
 
@@ -44,9 +46,12 @@ IMU/轮速/称重  ─▶ 互补滤波姿态 + 速度EKF + 附着RLS + 载荷┘
 
 ```bash
 python -m pip install -r requirements.txt
-python scripts/run_benchmark.py      # 五场景 × 基线/本方案，写 results/
-python scripts/make_figures.py       # 出图到 figures/*.svg
-python tests/test_smoke.py           # 7 项冒烟测试（也可 python -m pytest tests -q）
+python scripts/run_benchmark.py        # 五场景 × 基线/本方案，写 results/
+python scripts/make_figures.py         # 出图到 figures/*.svg
+python scripts/run_planner_demo.py     # 代价层 + CoM 规划 + 失效安全 + 滑移模型演示
+python scripts/make_prototype_layout.py # 整机布局图（俯视 + 侧视）
+python tests/test_smoke.py              # 7 项冒烟测试
+python tests/test_planner_failsafe.py   # 新增模块 5 项回归（也可 python -m pytest tests -q）
 ```
 
 单场景复跑：`python scripts/run_benchmark.py --scenarios S3_hill_hold`；压力测试加 `--noise`（8% 深度点缺失）。
@@ -62,6 +67,30 @@ python tests/test_smoke.py           # 7 项冒烟测试（也可 python -m pyte
 | S5 湿滑陡坡 | 26°，μ≈0.50，不可通行 | 硬闯后停在 3.2 m，后溜 1.52 m | **主动停在坡脚** 4.1 m，后溜 0.19 m |
 
 图表（地形纵断面、S1 滑移与附着估计、S3 驻车速度、能耗对比）由 `scripts/make_figures.py` 从 `results/` 生成；仓库只提交文本与可复现脚本，不提交生成物与二进制权重。土壤分类权重 `models/soil_mlp.json` 由 `scripts/train_soil_classifier.py` 按固定种子训练得到，`run_benchmark.py` 首次运行会自动补齐。
+
+## v2 增量（不改动上面五场景的任何数字）
+
+| 模块 | 借鉴 | 文件 | 实测 |
+|---|---|---|---|
+| 2.5D 代价层 | Nav2-Traversability-Layer / terrain_aware_navigation | `perception/costmap.py` | 台阶 0.149 m，同高差在斜坡上仅 0.012 m |
+| 重心约束横向规划 | AgRobPP-CA | `planning/lateral_planner.py` | 中线 56 行被台阶占住，规划全程不进禁行区，代价降 94% |
+| 失效安全阶梯 | ArduPilot ArduRover | `control/failsafe.py` | 链路中断→HOLD、过温→DERATE、急停→STOP 并锁存 |
+| 坡度/速度滑移模型 | Frontiers 2025 载货滑移模型 | `estimation/load_slip.py` | S1+S3 遥测标定 R² 0.59、MAE 0.059 |
+
+演示地形为 14° 上坡窄道 + 右侧 0.18 m 台阶，数字见 `results/planner_demo.json`。为何滑移模型里没有“载荷项”（质量是比率量，会约掉）、哪些开源项目**没有**被采用（ROS/Gazebo 栈、METAVerse、TartanDrive 等），见 `docs/prototype/P1_整机样机方案.md` 第 6 节。
+
+## 整机样机 P1（可制造级方案）
+
+| 项 | 指标 |
+|---|---|
+| 尺寸 / 轴距·轮距 / 轮径 | 1620×1100×920 mm / 1250·1100 / 480 mm |
+| 整备 + 额定载重 | 320 + 200 kg（最大 250 kg） |
+| 行走 | 4×4 48 V 轮毂电机 + 前后两组被动摆动桥（±12°） |
+| 爬坡 / 侧倾 / 续航 | 干硬 25°、松软 20°、湿滑 18° / 动态包络 31.9° / 3.8 km（满载坡） |
+| 制动 | 前液压盘刹 + 后电磁失电制动，均 2×160 N·m，断电即驻 |
+| BOM | 单台 3.35 万元（含 GNSS-RTK 选配 3.61 万元） |
+
+与开源样机的取舍写得比较直：Agrofelis（MIT）只取指标基线，因其无悬挂且 992 mm 宽不适合窄行；AgriCruiser 为 GPL v3 不复制文件；AgriBot 无 LICENSE 不引用代码；Papaya 的摇臂原理取用但改四轮；ArduRover 只对齐失效安全语义。
 
 ## 复刻来源（重要）
 
@@ -79,15 +108,17 @@ python tests/test_smoke.py           # 7 项冒烟测试（也可 python -m pyte
 slopehaul/
   config.py            车辆/感知/控制/场景参数
   sim/                 地形、传感器、车辆动力学、闭环世界
-  perception/          高程特征、土壤分类(MLP)、可通行性、姿态融合
-  estimation/          速度EKF、附着RLS、滑移率、载荷估计
-  control/             自适应控制、稳定性包络、驻车状态机、安全监督
+  perception/          高程特征、土壤分类(MLP)、可通行性、2.5D 代价层
+  estimation/          速度EKF、附着RLS、滑移率、载荷估计、坡度滑移代理模型
+  planning/            代价层上的横向偏移规划（重心投影约束）
+  control/             自适应控制、稳定性包络、驻车状态机、安全监督、失效安全阶梯
   agents/transporter.py感知-决策-控制串联，含 baseline/proposed 两套策略
   eval/                五场景、指标、批量评测
-scripts/               跑批 / 训练 / 出图
+scripts/               跑批 / 训练 / 出图 / 规划演示 / 整机布局图
 models/                土壤分类权重（JSON，可由脚本复现）
 docs/                  设计说明、结果解读、参考项目
-tests/                 冒烟回归
+  prototype/           整机样机 P1 方案与 BOM
+tests/                 冒烟回归 + 新增模块回归
 ```
 
 ## 诚实的局限
@@ -96,6 +127,7 @@ tests/                 冒烟回归
 - 土壤分类纹理是**合成代理数据**，验证集 100% 只说明四类在当前合成分布下可分，**不代表真实果园影像精度**。
 - 静止或低滑移时附着系数几乎不可观测（S1 的 μ 估计 MAE 0.224 即由此而来），此时只给先验区间，不谎报精确值。
 - 场景参数按山地果园常见工况设定，尚未用实测地形数据标定。
+- 整机样机的 BOM 价格为 2026-11 询价口径，批量采购可降约 15%，但**未做样机实测**，所有能力值均来自核算与仿真。
 
 ## 许可
 
