@@ -54,7 +54,7 @@
 | S4_rough_downhill | 附着估计 MAE | 0.044 | 0.044 |
 | S4_rough_downhill | 能耗 (Wh/m) | 0.328 | 0.336 |
 | S4_rough_downhill | 安全介入 | 0 | 0 |
-| S5_steep_wet | 任务结论 | 安全拒绕 | 安全拒绕 |
+| S5_steep_wet | 任务结论 | 安全拒绝 | 安全拒绝 |
 | S5_steep_wet | 通过场景 | 否 | 否 |
 | S5_steep_wet | 耗时 (s) | 25.0 | 25.0 |
 | S5_steep_wet | 平均滑移率 | 1.9% | 0.0% |
