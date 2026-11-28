@@ -1,0 +1,37 @@
+name: verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-and-drawings:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install ezdxf matplotlib pytest
+      - name: Unit tests
+        run: python -m pytest tests -q
+      - name: Rebuild benchmark
+        run: python scripts/run_benchmark.py
+      - name: Build drawings (DXF/PDF/PNG)
+        run: |
+          python -m cad.build_drawings
+          python -m cad.build_electrical
+      - name: Upload drawing package
+        uses: actions/upload-artifact@v4
+        with:
+          name: slopehaul-p1-drawings
+          path: |
+            cad/out/*.dxf
+            cad/out/*.pdf
+            cad/out/*.png
+            cad/out/*.csv
