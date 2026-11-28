@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  test-and-drawings:
+  test-artifacts:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,18 +20,28 @@ jobs:
           pip install ezdxf matplotlib pytest
       - name: Unit tests
         run: python -m pytest tests -q
-      - name: Rebuild benchmark
-        run: python scripts/run_benchmark.py
+      - name: Rebuild benchmark + figures + demo
+        run: |
+          python -m scripts.run_benchmark
+          python -m scripts.make_figures
+          python -m scripts.make_prototype_layout
+          python -m scripts.run_planner_demo
+          python -m scripts.train_soil_classifier
       - name: Build drawings (DXF/PDF/PNG)
         run: |
           python -m cad.build_drawings
           python -m cad.build_electrical
-      - name: Upload drawing package
+      - name: Upload generated artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: slopehaul-p1-drawings
+          name: slopehaul-generated
           path: |
             cad/out/*.dxf
             cad/out/*.pdf
             cad/out/*.png
             cad/out/*.csv
+            figures/*.svg
+            results/*.json
+            results/*.csv
+            results/*.md
+            models/*.json
