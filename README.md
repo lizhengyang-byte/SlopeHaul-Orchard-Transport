@@ -96,6 +96,30 @@ python tests/test_planner_failsafe.py   # 新增模块 5 项回归（也可 pyth
 
 与开源样机的取舍写得比较直：Agrofelis（MIT）只取指标基线，因其无悬挂且 992 mm 宽不适合窄行；AgriCruiser 为 GPL v3 不复制文件；AgriBot 无 LICENSE 不引用代码；Papaya 的摇臂原理取用但改四轮；ArduRover 只对齐失效安全语义。
 
+## 制造交付包（可直接下厂的 v1）
+
+图纸与文档不是 PPT 里的示意图，是能直接发给工厂的图册 + 判据 + 排期。
+
+| 交付物 | 位置 | 说明 |
+|---|---|---|
+| 机械图纸 4 张 | `cad/out/SLH-P1-01…04.dxf` | 车架 / 摆动桥 / 货箱 / 总装，A3，1:10 |
+| 电气图纸 2 张 | `cad/out/SLH-P1-E01/E02.dxf` | 主回路（48V→4×轮毂 + DC-DC）、控制拓扑（Jetson↔H7↔传感器） |
+| 线束表 | `cad/out/harness_slopehaul_p1.csv` | J1–J12，针脚/线径/长度 |
+| 图纸清单与工艺 | `docs/manufacturing/01_*.md` | 公差表、工艺路线、外购件询价要点 |
+| 检验与验收 | `docs/manufacturing/02_*.md` | IQC/IPQC/FAT 三档判据，16 项出厂试验 |
+| 试制与交付清单 | `docs/manufacturing/03_*.md` | 27 人日、15 工作日排期、随机交付物、风险表 |
+| 出图脚本 | `cad/build_drawings.py`、`cad/build_electrical.py` | 图纸唯一真源，改脚本重出，不手改 DXF |
+
+```bash
+pip install ezdxf matplotlib
+python -m cad.build_drawings     # 机械 4 张：DXF + PDF + PNG
+python -m cad.build_electrical   # 电气 2 张 + 线束表
+```
+
+部署侧代码 `slopehaul/deploy/` 已给出上车可用的最小闭环：CAN 应用层协议（0x180/0x200，CRC-16/CCITT）、H7 侧 200 Hz 监督器（心跳 200 ms 看门狗、扭矩斜率限制、急停锁存）、Jetson 侧 20 Hz 定频节点（含 deadline miss 统计），12 项单测随 `pytest tests/test_deploy.py` 跑通。
+
+两处必须提前知道的边界：图纸模型空间是**纸张坐标**（1:10），量图元要 ×10，标注写的是真实值；三维 STEP 装配尚未做（本机无 cadquery/freecad），二维 DXF 足以开料与焊接，但管路与干涉仍需三维复核。这两条已写进 `cad/README.md` 与 `docs/manufacturing/03` 的 v1.1 计划。
+
 ## 复刻来源（重要）
 
 参考三个开源项目的思路做**可运行复刻**，不是搬代码：
@@ -118,10 +142,12 @@ slopehaul/
   control/             自适应控制、稳定性包络、驻车状态机、安全监督、失效安全阶梯
   agents/transporter.py感知-决策-控制串联，含 baseline/proposed 两套策略
   eval/                五场景、指标、批量评测
+cad/                   图纸生成脚本（机械 4 张 + 电气 2 张 + 线束表），产物在 cad/out
 scripts/               跑批 / 训练 / 出图 / 规划演示 / 整机布局图
 models/                土壤分类权重（JSON，可由脚本复现）
 docs/                  设计说明、结果解读、参考项目
   prototype/           整机样机 P1 方案与 BOM
+  manufacturing/       图纸清单与工艺、检验与验收、试制与交付清单
 tests/                 冒烟回归 + 新增模块回归
 ```
 
